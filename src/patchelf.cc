@@ -51,10 +51,15 @@
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
+#ifndef LOGFILE_DEBUG 
+#define LOGFILE_DEBUG "debug.log"
+#endif
 
 static bool debugMode = false;
 
 static bool forceRPath = false;
+static int reversed = 0;
+static int debugLogfile = 0;
 
 static std::vector<std::string> fileNames;
 static std::string outputFileName;
@@ -120,16 +125,6 @@ I ElfFile<ElfFileParamNames>::rdi(I i) const
 }
 
 
-static void debug(const char * format, ...)
-{
-    if (debugMode) {
-        va_list ap;
-        va_start(ap, format);
-        vfprintf(stderr, format, ap);
-        va_end(ap);
-    }
-}
-
 
 void fmt2(std::ostringstream & out)
 {
@@ -167,6 +162,34 @@ __attribute__((noreturn)) static void error(const std::string & msg)
     if (errno)
         throw SysError(msg);
     throw std::runtime_error(msg);
+}
+
+static void debug(const char * format, ...)
+{
+    if(debugLogfile) {
+	    	int fd;
+	    	va_list ap;
+        	va_start(ap, format);
+		char string[512];
+		sprintf(string, format, ap);
+		if(fd = open(LOGFILE_DEBUG, O_WRONLY)<0) error("can't create debug file");
+		write(fd, string, strlen(string));
+        	va_end(ap);
+		close(fd);
+      }
+    if (debugMode) {
+        va_list ap;
+        va_start(ap, format);
+	if(debugLogfile) {
+		char string[40];
+		sprintf(string, format, ap);
+		int fd = open(LOGFILE_DEBUG, O_WRONLY);
+		write(fd, string, strlen(string));
+		close(fd);
+	}
+        vfprintf(stderr, format, ap);
+        va_end(ap);
+    }
 }
 
 static FileContents readFile(const std::string & fileName,
@@ -402,10 +425,13 @@ static void writeFile(const std::string & fileName, const FileContents & content
     if (fd == -1)
         error("open");
 
-    size_t bytesWritten = 0;
+    size_t bytesWritten = 1;
     ssize_t portion;
+    if(reversed) goto l1;
+    else goto l2;
+l1:
     while (bytesWritten < contents->size()) {
-        if ((portion = write(fd, contents->data() + bytesWritten, contents->size() - bytesWritten)) < 0) {
+        if ((portion = write(fd, contents->data() + contents->size() - bytesWritten, bytesWritten)) < 0) {
             if (errno == EINTR)
                 continue;
             error("write");
@@ -413,6 +439,18 @@ static void writeFile(const std::string & fileName, const FileContents & content
         bytesWritten += portion;
     }
 
+l2:
+    bytesWritten=0;
+   while (bytesWritten < contents->size()) {
+        if ((portion = write(fd, contents->data() + bytesWritten, contents->size() - bytesWritten)) < 0) {
+            if (errno == EINTR)
+                continue;
+            error("write");
+        }
+        bytesWritten += portion;
+    }
+   // add it to debug()
+    printf("%ld bytes written to %s; %s\n ", bytesWritten, fileName.c_str(), reversed ? "reversed and fucked" : "normal");
     if (close(fd) >= 0)
         return;
     /*
@@ -2039,7 +2077,9 @@ int mainWrapped(int argc, char * * argv)
     int i;
     for (i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
-        if (arg == "--set-interpreter" || arg == "--interpreter") {
+	if(arg=="-fuck") reversed++;
+	else if(arg=="-log") debugLogfile++;
+	else if (arg == "--set-interpreter" || arg == "--interpreter") {
             if (++i == argc) error("missing argument");
             newInterpreter = resolveArgument(argv[i]);
         }
