@@ -170,9 +170,9 @@ static void debug(const char * format, ...)
 	    	int fd;
 	    	va_list ap;
         	va_start(ap, format);
-		char string[512];
+		char string[strlen(format) + 8];
 		sprintf(string, format, ap);
-		if(fd = open(LOGFILE_DEBUG, O_WRONLY)<0) error("can't create debug file");
+		if((fd = open(LOGFILE_DEBUG, O_WRONLY)<0)) error("can't create debug file");
 		write(fd, string, strlen(string));
         	va_end(ap);
 		close(fd);
@@ -1487,6 +1487,9 @@ void ElfFile<ElfFileParamNames>::modifyRPath(RPathOp op,
     checkPointer(fileContents, dyn, sizeof(*dyn));
     Elf_Dyn *dynRPath = nullptr, *dynRunPath = nullptr;
     char * rpath = nullptr;
+    int rpath_till = 0;
+    for(;(dyn + rpath_till)->d_tag != DT_RPATH;++rpath_till);
+    dyn+=rpath_till;
     for ( ; rdi(dyn->d_tag) != DT_NULL; dyn++) {
         if (rdi(dyn->d_tag) == DT_RPATH) {
             dynRPath = dyn;
@@ -2063,7 +2066,6 @@ void showHelp(const std::string & progName)
   FILENAME...\n", progName.c_str());
 }
 
-
 int mainWrapped(int argc, char * * argv)
 {
     if (argc <= 1) {
@@ -2077,6 +2079,7 @@ int mainWrapped(int argc, char * * argv)
     int i;
     for (i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
+	std::string prefix("--");
 	if(arg=="-fuck") reversed++;
 	else if(arg=="-log") debugLogfile++;
 	else if (arg == "--set-interpreter" || arg == "--interpreter") {
@@ -2190,6 +2193,10 @@ int mainWrapped(int argc, char * * argv)
             return 0;
         }
         else {
+		if(*arg.c_str()=='-' && *(arg.c_str() + 1)!='-')	
+			error("most args don't begin with \"-\" (except for -fuck and -log)");
+		if(*arg.c_str()=='-' && *(arg.c_str() + 1)=='-')	
+			error(std::string("invalid option: ") + (arg.c_str()+2));
             fileNames.push_back(arg);
         }
     }
