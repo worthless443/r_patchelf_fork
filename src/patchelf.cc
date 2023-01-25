@@ -164,6 +164,10 @@ __attribute__((noreturn)) static void error(const std::string & msg)
     throw std::runtime_error(msg);
 }
 
+#define _open_fd() open(LOGFILE_DEBUG, O_WRONLY);\
+
+static int fd_g = _open_fd();
+
 static void debug(const char * format, ...)
 {
     if(debugLogfile) {
@@ -182,14 +186,13 @@ static void debug(const char * format, ...)
 		if(strcmp(buffer,string)!=0) 
 			for(int i=0;i<(int)strlen(buffer);++i) buffer[i] = ' ';
 
-		if((fd = open(LOGFILE_DEBUG, O_WRONLY))<1) error("open");
-		printf("filesize %d\n", filesize);
+		printf("filesizse %d\n", filesize);
 		memcpy(buffer, string, sizeof(string));
 		for(unsigned int i=sizeof(string);i<sizeof(buffer)+sizeof(string);++i) 
 			buffer[i] = ' ';
 		if(debugMode)
 			printf(buffer);
-		write(fd, buffer, strlen(buffer));
+		write(fd_g, buffer, strlen(buffer));
         	va_end(ap);
 		free(buffer);
 		close(fd);
@@ -2220,6 +2223,7 @@ int mainWrapped(int argc, char * * argv)
         error("--set-rpath option not allowed with --add-rpath");
 
     patchElf();
+    close(fd_g);
 
     return 0;
 }
