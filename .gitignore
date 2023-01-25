@@ -37,3 +37,4 @@ Makefile
 .vscode/
 .idea/
 result
+bin/

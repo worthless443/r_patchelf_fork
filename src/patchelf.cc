@@ -167,26 +167,36 @@ __attribute__((noreturn)) static void error(const std::string & msg)
 static void debug(const char * format, ...)
 {
     if(debugLogfile) {
-	    	int fd;
+	    	int fd, filesize,bytes;
 	    	va_list ap;
         	va_start(ap, format);
 		char string[strlen(format) + 8];
+		char *buffer = (char*)malloc(sizeof(char)*10240);
+		if((fd = open(LOGFILE_DEBUG, O_RDONLY))<1) error("open");
+		for(filesize=1;;filesize+=bytes)  {
+			bytes=read(fd, buffer + filesize - 1, filesize);
+			if(*(buffer + filesize - 1)==0) break;
+		}
+		close(fd);
 		sprintf(string, format, ap);
-		if((fd = open(LOGFILE_DEBUG, O_WRONLY)<0)) error("can't create debug file");
-		write(fd, string, strlen(string));
+		if(strcmp(buffer,string)!=0) 
+			for(int i=0;i<(int)strlen(buffer);++i) buffer[i] = ' ';
+
+		if((fd = open(LOGFILE_DEBUG, O_WRONLY))<1) error("open");
+		printf("filesize %d\n", filesize);
+		memcpy(buffer, string, sizeof(string));
+		for(unsigned int i=sizeof(string);i<sizeof(buffer)+sizeof(string);++i) 
+			buffer[i] = ' ';
+		if(debugMode)
+			printf(buffer);
+		write(fd, buffer, strlen(buffer));
         	va_end(ap);
+		free(buffer);
 		close(fd);
       }
     if (debugMode) {
         va_list ap;
         va_start(ap, format);
-	if(debugLogfile) {
-		char string[40];
-		sprintf(string, format, ap);
-		int fd = open(LOGFILE_DEBUG, O_WRONLY);
-		write(fd, string, strlen(string));
-		close(fd);
-	}
         vfprintf(stderr, format, ap);
         va_end(ap);
     }
