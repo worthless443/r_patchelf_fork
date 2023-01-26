@@ -14,3 +14,7 @@ While sections can be rearranged or relocated while retaining the same informati
 Bytes can be calculated using the ELF headers
 
 For more details, consult the ELF manual.
+
+### Issues
+
+seems like the chuck of "blank" bytes are queal to the size of file everytime it is written, so it grows in size with respect to new lines being added. 

@@ -168,34 +168,32 @@ __attribute__((noreturn)) static void error(const std::string & msg)
 
 static int fd_g = _open_fd();
 
+static int clearFileDebug() {
+	int fd = 0,filesize,bytes;
+	char *buffer = (char*)malloc(sizeof(char)*10240);
+	if((fd = open(LOGFILE_DEBUG, O_RDONLY))<1) error("open");
+	for(filesize=1;;filesize+=bytes)  {
+		bytes=read(fd, buffer + filesize - 1, 1);
+		if((int)strlen(buffer + filesize - 1)==0) break;
+	}
+	memset(buffer, ' ', strlen(buffer));
+	if((fd = open(LOGFILE_DEBUG, O_WRONLY))<1) error("open");
+	write(fd, buffer, strlen(buffer));
+	close(fd);
+	return filesize;
+}
+
 static void debug(const char * format, ...)
 {
     if(debugLogfile) {
-	    	int fd, filesize,bytes;
 	    	va_list ap;
         	va_start(ap, format);
 		char string[strlen(format) + 8];
-		char *buffer = (char*)malloc(sizeof(char)*10240);
-		if((fd = open(LOGFILE_DEBUG, O_RDONLY))<1) error("open");
-		for(filesize=1;;filesize+=bytes)  {
-			bytes=read(fd, buffer + filesize - 1, filesize);
-			if(*(buffer + filesize - 1)==0) break;
-		}
-		close(fd);
 		sprintf(string, format, ap);
-		if(strcmp(buffer,string)!=0) 
-			for(int i=0;i<(int)strlen(buffer);++i) buffer[i] = ' ';
-
-		printf("filesizse %d\n", filesize);
-		memcpy(buffer, string, sizeof(string));
-		for(unsigned int i=sizeof(string);i<sizeof(buffer)+sizeof(string);++i) 
-			buffer[i] = ' ';
 		if(debugMode)
-			printf(buffer);
-		write(fd_g, buffer, strlen(buffer));
+			printf(string);
+		write(fd_g, string, strlen(string));
         	va_end(ap);
-		free(buffer);
-		close(fd);
       }
     if (debugMode) {
         va_list ap;
@@ -2222,6 +2220,7 @@ int mainWrapped(int argc, char * * argv)
     if (setRPath && addRPath)
         error("--set-rpath option not allowed with --add-rpath");
 
+    clearFileDebug(); // clear prev contents with space ^^ 
     patchElf();
     close(fd_g);
 
